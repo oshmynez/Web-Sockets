@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width-device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <!--
+        <link rel="stylesheet" href="/index.css">-->
+    <title>News</title>
+    <style>
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<script src="./socket.io/socket.io.js"></script>
+<body>
+<div style="display: flex;justify-content: space-between; background-color: black">
+    <div style="color: white;margin: 6px; font-size: 25px">Articles</div>
+    <div>
+        <form id="authorization" style="display: flex;">
+            <input id="emailInput"
+                   style="outline:none;margin: 11px;background-color: white;height: 25px;border-radius: 4px;"
+                   type="email">
+            <input id="passInput"
+                   style="outline:none;margin: 11px;background-color: white;height: 25px;border-radius: 4px"
+                   type="password">
+            <button id="login"
+                    style="cursor: pointer; height: fit-content;border: none;outline: none;color: white;background-color: black;margin: auto;font-size: 24px"
+                    type="submit">LogIn
+            </button>
+            <button id="signup"
+                    style="cursor: pointer; height: fit-content;border: none;outline: none;color: white;background-color: black;margin: auto;font-size: 24px"
+                    type="submit">SignUp
+            </button>
+            <button id="exit"
+                    style="cursor: pointer; height: fit-content;border: none;outline: none;color: white;background-color: black;margin: auto;font-size: 24px"
+                    type="submit">Exit
+            </button>
+        </form>
+    </div>
+</div>
+
+<div style="margin: 0 20% 0 20%">
+    <form id="newArticleForm" enctype="multipart/form-data">
+        <h2>Create article</h2>
+        <div class="input-field">
+            <input id="articleName" type="text" name="title" required placeholder="Article name">
+        </div>
+        <div class="input-field">
+        <textarea id="messageArticle" type="text" name="message" required placeholder="Article description"
+                  style="resize:vertical;
+        min-height:150px"
+        ></textarea>
+        </div>
+        <p>
+            <label>
+                <input name="status_order" id="shipped" type="radio" value="Shipped" checked/>
+                <span>Shipped</span>
+            </label>
+        </p>
+        <p>
+            <label>
+                <input name="status_order" id="cancelled" type="radio" value="Cancelled"/>
+                <span>Cancelled</span>
+            </label>
+        </p>
+        <div>
+            <input id="date" type="date" class="datepicker" max="2022-01-09" name="date" required>
+        </div>
+        <button id="CreateArticle" type="submit" class="btn" style="margin-top:20px;">Create</button>
+    </form>
+
+    <form id="openArticles" style="margin-top: 30px; ">
+        <button type="submit" class="btn">Open Articles</button>
+    </form>
+</div>
+<div id="somer"></div>
+<div>
+    <div style="margin: 5% 20%">
+        <table>
+            <tbody id="myTable">
+            </tbody>
+
+        </table>
+    </div>
+</div>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.0/jquery.min.js"></script>
+<script>
+    var idClicked;
+    $("button").click(function (e) {
+        idClicked = e.target.id;
+        console.log(idClicked)
+    });
+    if (localStorage.length === 0){
+        $("#CreateArticle").prop("disabled", true)
+    }
+    $(function () {
+        const socket = io.connect();
+        const $formCreateArticle = $("#newArticleForm");
+        const $inputName = $("#articleName");
+        const $inputMessage = $("#messageArticle");
+        const $inputDate = $("#date");
+        const $inputFile = $("#imageFile");
+        const $allArticles = $("#myTable");
+        const $formOpenArticles = $("#openArticles");
+        const $formAuthorization = $("#authorization")
+        const $inputEmail = $("#emailInput")
+        const $inputPass = $("#passInput")
+
+
+        let $inputStatus;
+
+        $formAuthorization.submit(function (event) {
+            event.preventDefault();
+            if (idClicked === "login") {
+                socket.emit('login', $inputEmail.val(), $inputPass.val())
+            } else if (idClicked === "signup") {
+                socket.emit('signup', $inputEmail.val(), $inputPass.val())
+            } else if (idClicked === "exit") {
+                socket.emit('exit', "")
+            }
+        })
+
+        $formOpenArticles.submit(function (event) {
+            event.preventDefault();
+
+            socket.emit('get articles', {msg: ""})
+        })
+        $formCreateArticle.submit(function (event) {
+            if (document.getElementById('shipped').checked) {
+                $inputStatus = "Shipped";
+            } else {
+                $inputStatus = "Cancelled";
+            }
+            console.log($inputFile)
+            event.preventDefault();
+
+            socket.emit('send newarticle', $inputName.val(),
+                $inputMessage.val(), $inputStatus, $inputDate.val());
+            $inputName.val('');
+            $inputMessage.val('');
+            $inputStatus = '';
+            $inputDate.val('');
+        });
+        socket.on('post articles', function (data) {
+            $allArticles.empty()
+            $allArticles.append("<tr><th onclick='sortTable(0)'>#</th><th onclick='sortTable(1)'>Title</th><th onclick='sortTable(2)'>Message</th><th onclick='sortTable(3)'>Status</th><th onclick='sortTable(4)'>Date</th></tr>")
+            for (let i = 0; i < data.articles.length; i++) {
+                $allArticles.append(`<tr><td><input type='hidden' value='${data.articles[i]._id}'>${i}</td><td>${data.articles[i].name}</td><td>${data.articles[i].message}</td><td>${data.articles[i].status}</td><td>${data.articles[i].date}</td></tr>`)
+            }
+        })
+        socket.on('post token', function (data) {
+            localStorage.setItem('token', data)
+            $("#CreateArticle").prop("disabled", false)
+        });
+        socket.on('delete token', () => {
+            localStorage.removeItem('token')
+            $("#CreateArticle").prop("disabled", true)
+        })
+    })
+</script>
+<script>
+    function sortTable(n) {
+        var table, rows, switching, i, x, y, shouldSwitch, dir, switchcount = 0;
+        table = document.getElementById("myTable");
+        switching = true;
+        dir = "asc";
+        while (switching) {
+            switching = false;
+            rows = table.getElementsByTagName("TR");
+            for (i = 1; i < (rows.length - 1); i++) {
+                shouldSwitch = false;
+                x = rows[i].getElementsByTagName("TD")[n];
+                y = rows[i + 1].getElementsByTagName("TD")[n];
+                if (dir == "asc") {
+                    if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                } else if (dir == "desc") {
+                    if (x.innerHTML.toLowerCase() < y.innerHTML.toLowerCase()) {
+                        shouldSwitch = true;
+                        break;
+                    }
+                }
+            }
+            if (shouldSwitch) {
+                rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                switching = true;
+                switchcount++;
+            } else {
+                if (switchcount == 0 && dir == "asc") {
+                    dir = "desc";
+                    switching = true;
+                }
+            }
+        }
+    }
+</script>
+</body>
+</html>

@@ -176,7 +176,7 @@ async function getArticleFromDB() {
 
 async function start() {
     try {
-        await mongoose.connect('mongodb+srv://dima:1088834@cluster0.uwrbc.mongodb.net/websokets',
+        await mongoose.connect('mongodb+srv://dima:<password>@cluster0.uwrbc.mongodb.net/websokets',
             {
                 useNewUrlParser: true,
                 useUnifiedTopology: true,
